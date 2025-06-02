@@ -252,9 +252,9 @@ def build_event(
 
 def prepare_event(
     event_file,
-    detector_orig,
-    detector_proc,
     cell_features,
+    detector_orig=None,
+    detector_proc=None,
     progressbar=None,
     output_dir=None,
     pt_min=0,
@@ -320,5 +320,5 @@ def prepare_event(
 
         else:
             logging.info(evtid, "already exists")
-    except:
-        print("Exception with file:", event_file)
+    except Exception as e:
+        print("Exception with file:", event_file, " - ", e)

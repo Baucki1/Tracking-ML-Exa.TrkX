@@ -21,25 +21,25 @@ from ..utils.detector_utils import load_detector
 class FeatureStore(LightningDataModule):
     def __init__(self, hparams):
         super().__init__()
-        self.hparams = hparams
+        self.hparam = hparams
 
-        self.input_dir = self.hparams["input_dir"]
-        self.output_dir = self.hparams["output_dir"]
-        self.detector_path = self.hparams["detector_path"]
-        self.n_files = self.hparams["n_files"]
+        self.input_dir = self.hparam["input_dir"]
+        self.output_dir = self.hparam["output_dir"]
+        self.detector_path = self.hparam["detector_path"]
+        self.n_files = self.hparam["n_files"]
 
-        self.n_tasks = self.hparams["n_tasks"]
-        self.task = 0 if "task" not in self.hparams else self.hparams["task"]
+        self.n_tasks = self.hparam["n_tasks"]
+        self.task = 0 if "task" not in self.hparam else self.hparam["task"]
         self.n_workers = (
-            self.hparams["n_workers"]
-            if "n_workers" in self.hparams
+            self.hparam["n_workers"]
+            if "n_workers" in self.hparam
             else len(os.sched_getaffinity(0))
         )
         self.build_weights = (
-            self.hparams["build_weights"] if "build_weights" in self.hparams else True
+            self.hparam["build_weights"] if "build_weights" in self.hparam else True
         )
         self.show_progress = (
-            self.hparams["show_progress"] if "show_progress" in self.hparams else True
+            self.hparam["show_progress"] if "show_progress" in self.hparam else True
         )
 
     def prepare_data(self):
@@ -65,7 +65,10 @@ class FeatureStore(LightningDataModule):
             "geta",
             "gphi",
         ]
-        detector_orig, detector_proc = load_detector(self.detector_path)
+        
+        detector_orig, detector_proc = None, None
+        if self.detector_path is not None:
+            detector_orig, detector_proc = load_detector(self.detector_path)
 
         # Prepare output
         # output_dir = os.path.expandvars(self.output_dir) FIGURE OUT HOW TO USE THIS!
@@ -78,6 +81,6 @@ class FeatureStore(LightningDataModule):
             detector_orig=detector_orig,
             detector_proc=detector_proc,
             cell_features=cell_features,
-            **self.hparams
+            **self.hparam
         )
         process_map(process_func, all_events, max_workers=self.n_workers)
