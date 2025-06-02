@@ -47,11 +47,11 @@ def load_dataset(
         loaded_events = []
         for event in all_events[:num]:
             try:
-                loaded_event = torch.load(event, map_location=torch.device("cpu"))
+                loaded_event = torch.load(event, map_location=torch.device("cpu"), weights_only=False)
                 loaded_event.event_file = event
                 loaded_events.append(loaded_event)                
-            except:
-                logging.info("Corrupted event file: {}".format(event))
+            except Exception as e:
+                logging.info("Corrupted event file: {}, error: {}".format(event, e))
         loaded_events = select_data(
             loaded_events,
             pt_background_cut,
@@ -82,6 +82,8 @@ def split_datasets(
     Prepare the random Train, Val, Test split, using a seed for reproducibility. Seed should be
     changed across final varied runs, but can be left as default for experimentation.
     """
+
+    print("Loading dataset from {}".format(input_dir))
 
     torch.manual_seed(seed)
     loaded_events = load_dataset(

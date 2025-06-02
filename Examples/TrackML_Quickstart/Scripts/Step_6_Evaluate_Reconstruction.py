@@ -28,13 +28,13 @@ def parse_args():
 
 def load_reconstruction_df(file):
     """Load the reconstructed tracks from a file."""
-    graph = torch.load(file, map_location="cpu")
+    graph = torch.load(file, map_location="cpu", weights_only=False)
     reconstruction_df = pd.DataFrame({"hit_id": graph.hid, "track_id": graph.labels, "particle_id": graph.pid})
     return reconstruction_df
 
 def load_particles_df(file):
     """Load the particles from a file."""
-    graph = torch.load(file, map_location="cpu")
+    graph = torch.load(file, map_location="cpu", weights_only=False)
 
     # Get the particle dataframe
     particles_df = pd.DataFrame({"particle_id": graph.pid, "pt": graph.pt})
@@ -45,27 +45,34 @@ def load_particles_df(file):
     return particles_df
 
 def get_matching_df(reconstruction_df, particles_df, min_track_length=1, min_particle_length=1):
-    
     # Get track lengths
-    candidate_lengths = reconstruction_df.track_id.value_counts(sort=False)\
-        .reset_index().rename(
-            columns={"index":"track_id", "track_id": "n_reco_hits"})
+    candidate_lengths = reconstruction_df.track_id.value_counts(sort=False)#\
+        #.reset_index().rename(
+        #    columns={"index":"track_id", "track_id": "n_reco_hits"})
+    candidate_lengths = candidate_lengths.rename("n_reco_hits")#.reset_index().rename(columns={"index": "track_id"})
 
     # Get true track lengths
-    particle_lengths = reconstruction_df.drop_duplicates(subset=['hit_id']).particle_id.value_counts(sort=False)\
-        .reset_index().rename(
-            columns={"index":"particle_id", "particle_id": "n_true_hits"})
+    particle_lengths = reconstruction_df.drop_duplicates(subset=['hit_id']).particle_id.value_counts(sort=False)#\
+        #.reset_index().rename(
+        #    columns={"index":"particle_id", "particle_id": "n_true_hits"})
+    particle_lengths = particle_lengths.rename("n_true_hits")#.reset_index().rename(columns={"index": "particle_id"})
 
     spacepoint_matching = reconstruction_df.groupby(['track_id', 'particle_id']).size()\
         .reset_index().rename(columns={0:"n_shared"})
 
-    spacepoint_matching = spacepoint_matching.merge(candidate_lengths, on=['track_id'], how='left')
-    spacepoint_matching = spacepoint_matching.merge(particle_lengths, on=['particle_id'], how='left')
-    spacepoint_matching = spacepoint_matching.merge(particles_df, on=['particle_id'], how='left')
+    #spacepoint_matching = spacepoint_matching.merge(candidate_lengths, on=['track_id'], how='left')
+    #spacepoint_matching = spacepoint_matching.merge(particle_lengths, on=['particle_id'], how='left')
+    #spacepoint_matching = spacepoint_matching.merge(particles_df, on=['particle_id'], how='left')
+
+    spacepoint_matching = spacepoint_matching.merge(candidate_lengths, left_on='track_id', right_index=True, how='left') #['n_reco_hits', 'count']
+    spacepoint_matching = spacepoint_matching.merge(particle_lengths, left_on='particle_id', right_index=True, how='left') #['n_true_hits', 'count']
+    spacepoint_matching = spacepoint_matching.merge(particles_df, on='particle_id', how='left') #['particle_id', 'pt']
+
 
     # Filter out tracks with too few shared spacepoints
     spacepoint_matching["is_matchable"] = spacepoint_matching.n_reco_hits >= min_track_length
     spacepoint_matching["is_reconstructable"] = spacepoint_matching.n_true_hits >= min_particle_length
+    
 
     return spacepoint_matching
 

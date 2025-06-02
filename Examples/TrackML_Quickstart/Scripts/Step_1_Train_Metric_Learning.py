@@ -46,8 +46,9 @@ def train(config_file="pipeline_config.yaml"):
     logger = CSVLogger(save_directory, name=common_configs["experiment_name"])
 
     trainer = Trainer(
-        accelerator='gpu' if torch.cuda.is_available() else None,
-        gpus=common_configs["gpus"],
+        #accelerator='gpu' if torch.cuda.is_available() else None,
+        #gpus=common_configs["gpus"],
+        accelerator='auto',
         max_epochs=metric_learning_configs["max_epochs"],
         logger=logger
     )

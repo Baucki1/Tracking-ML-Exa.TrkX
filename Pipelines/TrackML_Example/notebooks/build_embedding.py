@@ -44,7 +44,7 @@ class EmbeddingInferenceBuilder:
                             )
                         )
                     ) or self.overwrite:
-                        batch = torch.load(event_file).to(self.model.device)
+                        batch = torch.load(event_file, weights_only=False).to(self.model.device)
                         self.construct_downstream(batch, datatype)
 
     def prepare_datastructure(self):
