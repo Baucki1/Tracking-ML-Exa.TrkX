@@ -22,7 +22,7 @@ from .cell_utils import get_one_event
 
 
 def get_cell_information(
-    data, cell_features, detector_orig, detector_proc, endcaps, noise
+    data, cell_features, detector_orig, detector_proc, noise
 ):
 
     event_file = data.event_file
@@ -40,94 +40,33 @@ def get_cell_information(
     return data
 
 
-def select_hits(hits, truth, particles, pt_min=0, endcaps=False, noise=False):
+def select_hits(hits, truth, particles, pt_min=0, noise=False):
     # Barrel volume and layer ids
-    if endcaps:
-        vlids = [
-            (7, 2),
-            (7, 4),
-            (7, 6),
-            (7, 8),
-            (7, 10),
-            (7, 12),
-            (7, 14),
-            (8, 2),
-            (8, 4),
-            (8, 6),
-            (8, 8),
-            (9, 2),
-            (9, 4),
-            (9, 6),
-            (9, 8),
-            (9, 10),
-            (9, 12),
-            (9, 14),
-            (12, 2),
-            (12, 4),
-            (12, 6),
-            (12, 8),
-            (12, 10),
-            (12, 12),
-            (13, 2),
-            (13, 4),
-            (13, 6),
-            (13, 8),
-            (14, 2),
-            (14, 4),
-            (14, 6),
-            (14, 8),
-            (14, 10),
-            (14, 12),
-            (16, 2),
-            (16, 4),
-            (16, 6),
-            (16, 8),
-            (16, 10),
-            (16, 12),
-            (17, 2),
-            (17, 4),
-            (18, 2),
-            (18, 4),
-            (18, 6),
-            (18, 8),
-            (18, 10),
-            (18, 12),
-        ]
-    else:
-        vlids = [
-            (8, 2),
-            (8, 4),
-            (8, 6),
-            (8, 8),
-            (13, 2),
-            (13, 4),
-            (13, 6),
-            (13, 8),
-            (17, 2),
-            (17, 4),
-        ]
+    vols, lays = np.arange(1, 10), np.arange(0, 10)
+    vlids = [(v, l) for v in vols for l in lays]
+    
     n_det_layers = len(vlids)
     # Select barrel layers and assign convenient layer number [0-9]
     vlid_groups = hits.groupby(["volume_id", "layer_id"])
-    hits = pd.concat(
-        [vlid_groups.get_group(vlids[i]).assign(layer=i) for i in range(n_det_layers)]
-    )
+    hits = pd.concat([vlid_groups.get_group(vlids[i]).assign(layer=i) for i in range(n_det_layers) if vlids[i] in vlid_groups.groups.keys()])
+    
+    
     if noise is False:
         # Calculate particle transverse momentum
         pt = np.sqrt(particles.px**2 + particles.py**2)
         # Applies pt cut, removes noise hits
         particles = particles[pt > pt_min]
-        truth = truth[["hit_id", "particle_id", "tpx", "tpy", "weight"]].merge(
-            particles[["particle_id", "vx", "vy", "vz"]], on="particle_id"
-        )
-        truth = truth.assign(pt=np.sqrt(truth.tpx**2 + truth.tpy**2))
     else:
         # Calculate particle transverse momentum
         pt = np.sqrt(truth.tpx**2 + truth.tpy**2)
         # Applies pt cut
         truth = truth[pt > pt_min]
         truth.loc[truth["particle_id"] == 0, "particle_id"] = float("NaN")
-        truth = truth.assign(pt=pt)
+        #truth = truth.assign(pt=pt)
+    truth = truth[["hit_id", "particle_id", "tpx", "tpy", "weight"]].merge(
+        particles[["particle_id", "vx", "vy", "vz"]], on="particle_id"
+    )
+    truth = truth.assign(pt=np.sqrt(truth.tpx**2 + truth.tpy**2))
     # Calculate derived hits variables
     r = np.sqrt(hits.x**2 + hits.y**2)
     phi = np.arctan2(hits.y, hits.x)
@@ -152,7 +91,6 @@ def build_event(
     pt_min,
     feature_scale,
     adjacent=True,
-    endcaps=False,
     layerless=True,
     layerwise=True,
     noise=False,
@@ -162,7 +100,7 @@ def build_event(
         event_file, parts=["hits", "particles", "truth"]
     )
     hits = select_hits(
-        hits, truth, particles, pt_min=pt_min, endcaps=endcaps, noise=noise
+        hits, truth, particles, pt_min=pt_min, noise=noise
     ).assign(evtid=int(event_file[-9:]))
     layers = hits.layer.to_numpy()
 
@@ -234,7 +172,7 @@ def build_event(
         else hits.weight.to_numpy()[layerwise_true_edges]
     )
     edge_weight_average = (edge_weights[0] + edge_weights[1]) / 2
-    edge_weight_norm = edge_weight_average / edge_weight_average.mean()
+    edge_weight_norm = edge_weight_average / edge_weight_average.mean() if edge_weight_average.mean() != 0 else edge_weight_average
 
     logging.info("Weights constructed")
 
@@ -259,7 +197,6 @@ def prepare_event(
     output_dir=None,
     pt_min=0,
     adjacent=True,
-    endcaps=False,
     layerless=True,
     layerwise=True,
     noise=False,
@@ -290,7 +227,6 @@ def prepare_event(
                 pt_min,
                 feature_scale,
                 adjacent=adjacent,
-                endcaps=endcaps,
                 layerless=layerless,
                 layerwise=layerwise,
                 noise=noise,
@@ -312,7 +248,7 @@ def prepare_event(
             logging.info("Getting cell info")
             if cell_information:
                 data = get_cell_information(
-                    data, cell_features, detector_orig, detector_proc, endcaps, noise
+                    data, cell_features, detector_orig, detector_proc, noise
                 )
 
             with open(filename, "wb") as pickle_file:
@@ -320,5 +256,5 @@ def prepare_event(
 
         else:
             logging.info(evtid, "already exists")
-    except Exception as e:
-        print("Exception with file:", event_file, " - ", e)
+    except:
+        print("Exception with file:", event_file)
