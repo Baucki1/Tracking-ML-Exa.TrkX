@@ -134,6 +134,8 @@ def build_event(
                 event_file, layerless_true_edges.shape
             )
         )
+        if len(layerless_true_edges) == 0:
+            raise ValueError(f"No edges found in layerless graph. Check pT threshold or data integrity.")
 
     if layerwise:
         # Get true edge list using the ordering of layers
@@ -165,6 +167,8 @@ def build_event(
                 event_file, layerwise_true_edges.shape
             )
         )
+        if len(layerwise_true_edges) == 0:
+            raise ValueError(f"No edges found in layerwise graph. Check pT threshold or data integrity.")
 
     edge_weights = (
         hits.weight.to_numpy()[layerless_true_edges]
@@ -256,5 +260,5 @@ def prepare_event(
 
         else:
             logging.info(evtid, "already exists")
-    except:
-        print("Exception with file:", event_file)
+    except Exception as e:
+        print("Exception with file:", event_file, e)
