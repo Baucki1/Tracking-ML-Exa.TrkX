@@ -30,7 +30,7 @@ from .cell_utils import get_one_event
 
 
 def get_cell_information(
-    data, cell_features, detector_orig, detector_proc, endcaps, noise
+    data, cell_features, detector_orig, detector_proc, noise
 ):
 
     event_file = data.event_file
@@ -111,77 +111,16 @@ def get_modulewise_edges(hits):
     return true_edges
 
 
-def select_hits(hits, truth, particles, endcaps=False, noise=False, min_pt=None):
+def select_hits(hits, truth, particles, noise=False, min_pt=None):
     # Barrel volume and layer ids
-    if endcaps:
-        vlids = [
-            (7, 2),
-            (7, 4),
-            (7, 6),
-            (7, 8),
-            (7, 10),
-            (7, 12),
-            (7, 14),
-            (8, 2),
-            (8, 4),
-            (8, 6),
-            (8, 8),
-            (9, 2),
-            (9, 4),
-            (9, 6),
-            (9, 8),
-            (9, 10),
-            (9, 12),
-            (9, 14),
-            (12, 2),
-            (12, 4),
-            (12, 6),
-            (12, 8),
-            (12, 10),
-            (12, 12),
-            (13, 2),
-            (13, 4),
-            (13, 6),
-            (13, 8),
-            (14, 2),
-            (14, 4),
-            (14, 6),
-            (14, 8),
-            (14, 10),
-            (14, 12),
-            (16, 2),
-            (16, 4),
-            (16, 6),
-            (16, 8),
-            (16, 10),
-            (16, 12),
-            (17, 2),
-            (17, 4),
-            (18, 2),
-            (18, 4),
-            (18, 6),
-            (18, 8),
-            (18, 10),
-            (18, 12),
-        ]
-    else:
-        vlids = [
-            (8, 2),
-            (8, 4),
-            (8, 6),
-            (8, 8),
-            (13, 2),
-            (13, 4),
-            (13, 6),
-            (13, 8),
-            (17, 2),
-            (17, 4),
-        ]
+    vols, lays = np.arange(1, 10), np.arange(0, 10)
+    vlids = [(v, l) for v in vols for l in lays]
+    
     n_det_layers = len(vlids)
     # Select barrel layers and assign convenient layer number [0-9]
     vlid_groups = hits.groupby(["volume_id", "layer_id"])
     hits = pd.concat(
-        [vlid_groups.get_group(vlids[i]).assign(layer=i) for i in range(n_det_layers)]
+        [vlid_groups.get_group(vlids[i]).assign(layer=i) for i in range(n_det_layers) if vlids[i] in vlid_groups.groups.keys()]
     )
 
     if noise:
@@ -210,7 +149,6 @@ def select_hits(hits, truth, particles, endcaps=False, noise=False, min_pt=None)
 def build_event(
     event_file,
     feature_scale,
-    endcaps=False,
     modulewise=True,
     layerwise=True,
     noise=False,
@@ -221,7 +159,7 @@ def build_event(
     hits, particles, truth = trackml.dataset.load_event(
         event_file, parts=["hits", "particles", "truth"]
     )
-    hits = select_hits(hits, truth, particles, endcaps=endcaps, noise=noise, min_pt=min_pt).assign(
+    hits = select_hits(hits, truth, particles, noise=noise, min_pt=min_pt).assign(
         evtid=int(event_file[-9:])
     )
     
@@ -245,6 +183,9 @@ def build_event(
                 event_file, layerwise_true_edges.shape
             )
         )
+        if len(layerwise_true_edges) == 0:
+            raise ValueError(f"No edges found in layerwise graph. Check pT threshold or data integrity.")
+
 
     if modulewise:
         modulewise_true_edges = get_modulewise_edges(hits)
@@ -253,6 +194,8 @@ def build_event(
                 event_file, modulewise_true_edges.shape
             )
         )
+        if len(modulewise_true_edges) == 0:
+            raise ValueError(f"No edges found in modulewise graph. Check pT threshold or data integrity.")
 
     edge_weights = (
         hits.weight.to_numpy()[modulewise_true_edges]
@@ -260,7 +203,7 @@ def build_event(
         else hits.weight.to_numpy()[layerwise_true_edges]
     )
     edge_weight_average = (edge_weights[0] + edge_weights[1]) / 2
-    edge_weight_norm = edge_weight_average / edge_weight_average.mean()
+    edge_weight_norm = edge_weight_average / edge_weight_average.mean()  if edge_weight_average.mean() != 0 else edge_weight_average
 
     logging.info("Weights constructed")
 
@@ -279,11 +222,10 @@ def build_event(
 
 def prepare_event(
     event_file,
-    detector_orig,
-    detector_proc,
     cell_features,
+    detector_orig=None,
+    detector_proc=None,
     output_dir=None,
-    endcaps=False,
     modulewise=True,
     layerwise=True,
     noise=False,
@@ -314,7 +256,6 @@ def prepare_event(
             ) = build_event(
                 event_file,
                 feature_scale,
-                endcaps=endcaps,
                 modulewise=modulewise,
                 layerwise=layerwise,
                 noise=noise,
@@ -340,7 +281,7 @@ def prepare_event(
 
             if cell_information:
                 data = get_cell_information(
-                    data, cell_features, detector_orig, detector_proc, endcaps, noise
+                    data, cell_features, detector_orig, detector_proc, noise
                 )
 
             with open(filename, "wb") as pickle_file:

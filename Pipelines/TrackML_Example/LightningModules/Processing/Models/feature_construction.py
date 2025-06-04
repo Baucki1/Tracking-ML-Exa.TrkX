@@ -6,6 +6,7 @@ from functools import partial
 
 # 3rd party imports
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 from pytorch_lightning import LightningDataModule
 from torch.nn import Linear
@@ -23,6 +24,7 @@ class TrackMLFeatureStore(FeatureStoreBase):
     def __init__(self, hparams):
         super().__init__(hparams)
         self.detector_path = self.hparams["detector_path"]
+        self.cell_information = self.hparams.get("cell_information", False)
 
     def prepare_data(self):
         # Find the input files
@@ -47,7 +49,13 @@ class TrackMLFeatureStore(FeatureStoreBase):
             "geta",
             "gphi",
         ]
-        detector_orig, detector_proc = load_detector(self.detector_path)
+        
+        detector_orig, detector_proc = None, None
+        if self.detector_path is not None:
+            detector_orig = pd.read_csv(self.detector_path)
+            if self.cell_information:
+                detector_orig, detector_proc = load_detector(self.detector_path)
+
 
         # Prepare output
         # output_dir = os.path.expandvars(self.output_dir) FIGURE OUT HOW TO USE THIS!
