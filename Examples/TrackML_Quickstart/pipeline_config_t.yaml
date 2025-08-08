@@ -1,24 +1,25 @@
 common_configs:
   experiment_name: trackml_quickstart_1
-  artifact_directory: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50/artifacts
-  gpus: 0
+  artifact_directory: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50_t/artifacts
+  gpus: 1
   clear_directories: True
 
 metric_learning_configs:
   # Dataset parameters
-  input_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50/output_featurestore # ../../../../data/pionGun_pT_0_50/output_featurestore/ #datasets/quickstart_example_1GeV #
-  output_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50/metric_learning_processed/ #datasets/quickstart_metric_learning_processed #
+  input_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50_t/output_featurestore # ../../../../data/pionGun_pT_0_50_t/output_featurestore/ #datasets/quickstart_example_1GeV #
+  output_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50_t/metric_learning_processed/ #datasets/quickstart_metric_learning_processed #
   pt_signal_cut: 1.
   pt_background_cut: 1.
   train_split: [80, 10, 10] # Number of [training, validation, testing] examples
   true_edges: modulewise_true_edges #layerwise_true_edges #
+  timing: True # Use timing information in the metric learning
 
   # Model parameters
-  spatial_channels: 3
+  spatial_channels: 4 # 3+1 for timing
   cell_channels: 0 #9
   emb_hidden: 1024
   nb_layer: 4
-  emb_dim: 3 #12
+  emb_dim: 4 #3+1 for timing #3 #12
   activation: Tanh
   weight: 2
   randomisation: 2
@@ -37,17 +38,17 @@ metric_learning_configs:
 
 gnn_configs:
   # Dataset parameters
-  input_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50/metric_learning_processed/ #datasets/quickstart_metric_learning_processed
-  output_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50/gnn_processed/ #datasets/quickstart_gnn_processed
+  input_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50_t/metric_learning_processed/ #datasets/quickstart_metric_learning_processed
+  output_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50_t/gnn_processed/ #datasets/quickstart_gnn_processed
   edge_cut: 0.5
   pt_signal_min: 1.
   pt_background_min: 1.
   datatype_names: [train, val, test] # Which directory prefixes to use, assuming at least a train dataset 
   datatype_split: [80, 10, 10] # Number of [training, validation, testing] examples
-  noise: True #False
+  noise: False #False
 
   # Model parameters
-  spatial_channels: 3
+  spatial_channels: 4 # 3+1 for timing
   cell_channels: 0
   hidden: 128
   n_graph_iters: 6
@@ -64,14 +65,14 @@ gnn_configs:
   truth_key: pid_signal
   regime: [pid]
   mask_background: True
-  max_epochs: 30
+  max_epochs: 10
 
 track_building_configs:
   score_cut: 0.9
-  output_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50/track_building_processed/ #datasets/quickstart_track_building_processed
+  output_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50_t/track_building_processed/ #datasets/quickstart_track_building_processed
 
 evaluation_configs:
-  output_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50/evaluation/ #datasets/quickstart_evaluation
+  output_dir: /data/dust/user/bauckhag/code/TrackML/data/pionGun_pT_0_50_t/evaluation/ #datasets/quickstart_evaluation
   min_pt: 1
   max_eta: 4
   min_track_length: 3

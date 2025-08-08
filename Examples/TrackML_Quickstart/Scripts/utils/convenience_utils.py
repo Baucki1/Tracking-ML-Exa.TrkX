@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from bokeh.io import output_notebook, show
+from bokeh.io import output_notebook, show, export_png, export_svg, export_svgs
 from bokeh.plotting import figure
 from bokeh.layouts import row
 from bokeh.models import ColumnDataSource
@@ -70,7 +70,7 @@ def get_training_metrics(trainer):
     return metrics
 
 
-def plot_training_metrics(metrics):
+def plot_training_metrics(metrics, output_dir=None):
 
     p1 = figure(title='Training validation loss',
                 x_axis_label='Epoch', y_axis_label='Loss', y_axis_type="log")
@@ -98,10 +98,15 @@ def plot_training_metrics(metrics):
     p3.line(x='epoch', y='eff', source=source,
             color=cmap[0], legend_label='Efficiency')
 
-    show(row([p1, p2, p3]))
+    if output_dir:
+        export_svg(p1, filename=os.path.join(output_dir, 'training_loss.svg'))
+        export_svg(p2, filename=os.path.join(output_dir, 'training_purity.svg'))
+        export_svg(p3, filename=os.path.join(output_dir, 'training_efficiency.svg'))
+    else:
+        show(row([p1, p2, p3]))
 
 
-def plot_neighbor_performance(model):
+def plot_neighbor_performance(model, output_dir=None):
 
     all_radius = np.arange(0.001, 0.15, 0.005)
     results = {'eff': [], 'pur': [], 'loss': [], 'radius': all_radius}
@@ -137,10 +142,13 @@ def plot_neighbor_performance(model):
                       background_fill_color='white', background_fill_alpha=0.8)
         figures[-1].add_layout(label)
 
-    show(row(figures))
+    if output_dir:
+        export_svgs(figures, filename=os.path.join(output_dir, 'neighbor_performance.svg'))
+    else:
+        show(row(figures))
 
 
-def plot_true_graph(sample_data, num_tracks=100):
+def plot_true_graph(sample_data, num_tracks=100, configs=None, output_dir=None):
 
     p = figure(title='Truth graph', x_axis_label='x',
                y_axis_label='y', height=800, width=800)
@@ -149,7 +157,11 @@ def plot_true_graph(sample_data, num_tracks=100):
     true_unique, true_lengths = sample_data.pid[true_edges[0]].unique(
         return_counts=True)
     pid = sample_data.pid
-    r, phi, z = sample_data.cpu().x.T
+    r, phi, z, t = 0, 0, 0, 0
+    if configs and configs["metric_learning_configs"]["timing"]:
+        r, phi, z, t = sample_data.cpu().x.T
+    else:
+        r, phi, z = sample_data.cpu().x.T
     x, y = r * np.cos(phi * np.pi), r * np.sin(phi * np.pi)
     cmap = viridis(num_tracks)
     source = ColumnDataSource(dict(x=x.numpy(), y=y.numpy()))
@@ -166,10 +178,13 @@ def plot_true_graph(sample_data, num_tracks=100):
         p.circle(X, Y, color=cmap[i], size=5)
         p.multi_line(X_edges.T.tolist(), Y_edges.T.tolist(), color=cmap[i])
 
-    show(p)
+    if output_dir:
+        export_svg(p, filename=os.path.join(output_dir, 'true_graph.svg'))
+    else:
+        show(p)
 
 
-def plot_predicted_graph(model):
+def plot_predicted_graph(model, output_dir=None):
 
     # from matplotlib import pyplot as plt
     model.to(device)
@@ -187,7 +202,11 @@ def plot_predicted_graph(model):
         return_counts=True)
     pred_edges = test_results['preds'].cpu()
     pid = test_data.pid
-    r, phi, z = test_data.cpu().x.T
+    r, phi, z, t = 0, 0, 0, 0
+    if model.hparams["timing"]:
+        r, phi, z, t = test_data.cpu().x.T
+    else:
+        r, phi, z = test_data.cpu().x.T
     x, y = r * np.cos(phi * np.pi), r * np.sin(phi * np.pi)
     cmap = viridis(11)
     source = ColumnDataSource(dict(x=x.numpy(), y=y.numpy()))
@@ -216,10 +235,14 @@ def plot_predicted_graph(model):
         q.circle(X, Y, color=cmap[i], size=5)
         q.multi_line(X_edges.T.tolist(), Y_edges.T.tolist(), color=cmap[i])
 
-    show(row([p, q]))
+    if output_dir:
+        export_svg(p, filename=os.path.join(output_dir, 'true_graph.svg'))
+        export_svg(q, filename=os.path.join(output_dir, 'predicted_graph.svg'))
+    else:
+        show(row([p, q]))
 
 
-def plot_track_lengths(model):
+def plot_track_lengths(model, output_dir=None):
 
     all_true_edges = []
     all_pred_edges = []
@@ -266,10 +289,15 @@ def plot_track_lengths(model):
             source=ColumnDataSource(true_histogram))
     p2.quad(bottom=0, top='pred_hist', left='low', right='high',
             source=ColumnDataSource(pred_histogram))
-    show(row([p1, p2]))
+    
+    if output_dir:
+        export_svg(p1, filename=os.path.join(output_dir, 'true_track_lengths.svg'))
+        export_svg(p2, filename=os.path.join(output_dir, 'predicted_track_lengths.svg'))
+    else:
+        show(row([p1, p2]))
 
 
-def plot_graph_sizes(model):
+def plot_graph_sizes(model, output_dir=None):
 
     graph_sizes = []
     model = model.to(device)
@@ -284,9 +312,12 @@ def plot_graph_sizes(model):
     plt.hist(graph_sizes)
     plt.title('Histogram of predicted graph sizes')
     plt.xlabel('Number of edges')
+    
+    if output_dir:
+        plt.savefig(os.path.join(output_dir, 'predicted_graph_sizes.svg'))
 
 
-def plot_edge_performance(model):
+def plot_edge_performance(model, output_dir=None):
 
     all_cuts = np.arange(0.001, 1., 0.02)
     results = {'eff': [], 'pur': [], 'score cut': all_cuts}
@@ -332,4 +363,7 @@ def plot_edge_performance(model):
                       background_fill_color='white', background_fill_alpha=0.8)
         figures[-1].add_layout(label)
 
-    show(row(figures))
+    if output_dir:
+        export_svgs(figures, filename=os.path.join(output_dir, 'edge_performance.svg'))
+    else:
+        show(row(figures))

@@ -170,7 +170,7 @@ def build_event(
     
     # Make a unique module ID and attach to hits
     if detector is not None:
-        module_lookup = detector.reset_index()[["index", "volume_id", "layer_id", "module_id"]].rename(columns={"index": "module_index"})
+        module_lookup = detector.reset_index()[["index", "volume_id", "layer_id", "module_id"]].drop_duplicates(subset=["volume_id", "layer_id", "module_id"]).rename(columns={"index": "module_index"})
         hits = hits.merge(module_lookup, on=["volume_id", "layer_id", "module_id"], how="left")
         module_id = hits.module_index.to_numpy()
     else:

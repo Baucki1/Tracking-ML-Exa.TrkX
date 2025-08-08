@@ -169,7 +169,11 @@ def reset_edge_id(subset, graph):
 def graph_intersection(
     pred_graph, truth_graph, using_weights=False, weights_bidir=None
 ):
-
+    #if pred_graph.numel() == 0:
+    #    if using_weights:
+    #        return torch.empty((2, 0)).long(), torch.empty(0), torch.empty(0)
+    #    else:
+    #        return torch.empty((2, 0)).long(), torch.empty(0)
     array_size = max(pred_graph.max().item(), truth_graph.max().item()) + 1
 
     if torch.is_tensor(pred_graph):
