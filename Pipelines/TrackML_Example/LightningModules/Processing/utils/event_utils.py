@@ -50,7 +50,7 @@ def get_layerwise_edges(hits):
 
     hits = hits.assign(
         R=np.sqrt(
-            (hits.x - hits.vx) ** 2 + (hits.y - hits.vy) ** 2 + (hits.z - hits.vz) ** 2
+            (hits.x - hits.vx) ** 2 + (hits.y - hits.vy) ** 2 + (hits.z - hits.vz) ** 2 + (hits.t - hits.vt) ** 2 if "t" in hits.columns else 0
         )
     )
     hits = hits.sort_values("R").reset_index(drop=True).reset_index(drop=False)
@@ -86,6 +86,7 @@ def get_modulewise_edges(hits):
             (signal.x - signal.vx) ** 2
             + (signal.y - signal.vy) ** 2
             + (signal.z - signal.vz) ** 2
+            + (signal.t - signal.vt) ** 2 if "t" in signal.columns else 0
         )
     )
     signal = signal.sort_values("R").reset_index(drop=False)
@@ -111,7 +112,7 @@ def get_modulewise_edges(hits):
     return true_edges
 
 
-def select_hits(hits, truth, particles, noise=False, min_pt=None):
+def select_hits(hits, truth, particles, noise=False, min_pt=None, timing=False):
     # Barrel volume and layer ids
     vols, lays = np.arange(1, 10), np.arange(0, 10)
     vlids = [(v, l) for v in vols for l in lays]
@@ -123,26 +124,29 @@ def select_hits(hits, truth, particles, noise=False, min_pt=None):
         [vlid_groups.get_group(vlids[i]).assign(layer=i) for i in range(n_det_layers) if vlids[i] in vlid_groups.groups.keys()]
     )
 
+    particle_cols = ["particle_id", "vx", "vy", "vz"]
+    if timing:
+        particle_cols = ["particle_id", "vx", "vy", "vz", "vt"]
+
     if noise:
         truth = truth.merge(
-            particles[["particle_id", "vx", "vy", "vz"]], on="particle_id", how="left"
+            particles[particle_cols], on="particle_id", how="left"
         )
     else:
         truth = truth.merge(
-            particles[["particle_id", "vx", "vy", "vz"]], on="particle_id", how="inner"
+            particles[particle_cols], on="particle_id", how="inner"
         )
 
     truth = truth.assign(pt=np.sqrt(truth.tpx**2 + truth.tpy**2))
 
     if min_pt:
         truth = truth[truth.pt > min_pt]
-
+        
     # Calculate derived hits variables
     r = np.sqrt(hits.x**2 + hits.y**2)
     phi = np.arctan2(hits.y, hits.x)
     # Select the data columns we need
     hits = hits.assign(r=r, phi=phi).merge(truth, on="hit_id")
-
     return hits
 
 
@@ -154,12 +158,13 @@ def build_event(
     noise=False,
     min_pt=None,
     detector=None,
+    timing=False
 ):
     # Get true edge list using the ordering by R' = distance from production vertex of each particle
     hits, particles, truth = trackml.dataset.load_event(
         event_file, parts=["hits", "particles", "truth"]
     )
-    hits = select_hits(hits, truth, particles, noise=noise, min_pt=min_pt).assign(
+    hits = select_hits(hits, truth, particles, noise=noise, min_pt=min_pt, timing=timing).assign(
         evtid=int(event_file[-9:])
     )
     
@@ -207,8 +212,9 @@ def build_event(
 
     logging.info("Weights constructed")
 
+    x_cols = ["r", "phi", "z", "t"] if timing else ["r", "phi", "z"]
     return (
-        hits[["r", "phi", "z"]].to_numpy() / feature_scale,
+        hits[x_cols].to_numpy() / feature_scale,
         hits.particle_id.to_numpy(),
         module_id,
         modulewise_true_edges,
@@ -232,6 +238,7 @@ def prepare_event(
     min_pt=None,
     cell_information=True,
     overwrite=False,
+    timing=False,
     **kwargs
 ):
 
@@ -241,7 +248,7 @@ def prepare_event(
 
         if not os.path.exists(filename) or overwrite:
             logging.info("Preparing event {}".format(evtid))
-            feature_scale = [1000, np.pi, 1000]
+            feature_scale = [1000, np.pi, 1000, 1] if timing else [1000, np.pi, 1000]
 
             (
                 X,
@@ -260,7 +267,8 @@ def prepare_event(
                 layerwise=layerwise,
                 noise=noise,
                 min_pt=min_pt,
-                detector=detector_orig
+                detector=detector_orig,
+                timing=timing
             )
 
             data = Data(
