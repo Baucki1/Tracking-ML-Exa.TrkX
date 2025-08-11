@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from bokeh.io import output_notebook, show, export_png, export_svg, export_svgs
+from bokeh.io import output_notebook, show, export_png, export_svg, export_svgs, output_file, save
 from bokeh.plotting import figure
 from bokeh.layouts import row
 from bokeh.models import ColumnDataSource
@@ -70,7 +70,7 @@ def get_training_metrics(trainer):
     return metrics
 
 
-def plot_training_metrics(metrics, output_dir=None):
+def plot_training_metrics(metrics, output_dir=None, savename=None):
 
     p1 = figure(title='Training validation loss',
                 x_axis_label='Epoch', y_axis_label='Loss', y_axis_type="log")
@@ -99,9 +99,15 @@ def plot_training_metrics(metrics, output_dir=None):
             color=cmap[0], legend_label='Efficiency')
 
     if output_dir:
-        export_svg(p1, filename=os.path.join(output_dir, 'training_loss.svg'))
-        export_svg(p2, filename=os.path.join(output_dir, 'training_purity.svg'))
-        export_svg(p3, filename=os.path.join(output_dir, 'training_efficiency.svg'))
+        savename = savename if savename else 'training_metrics.html'
+        output_file(os.path.join(output_dir, savename))
+        save(row([p1, p2, p3]))
+        try:
+            export_svg(p1, filename=os.path.join(output_dir, 'training_loss.svg'))
+            export_svg(p2, filename=os.path.join(output_dir, 'training_purity.svg'))
+            export_svg(p3, filename=os.path.join(output_dir, 'training_efficiency.svg'))
+        except:
+            print("Error exporting SVGs")
     else:
         show(row([p1, p2, p3]))
 
@@ -143,7 +149,12 @@ def plot_neighbor_performance(model, output_dir=None):
         figures[-1].add_layout(label)
 
     if output_dir:
-        export_svgs(figures, filename=os.path.join(output_dir, 'neighbor_performance.svg'))
+        output_file(os.path.join(output_dir, 'neighbor_performance.html'))
+        save(figures)
+        try:
+            export_svgs(figures, filename=os.path.join(output_dir, 'neighbor_performance.svg'))
+        except:
+            print("Error exporting SVGs")
     else:
         show(row(figures))
 
@@ -179,7 +190,12 @@ def plot_true_graph(sample_data, num_tracks=100, configs=None, output_dir=None):
         p.multi_line(X_edges.T.tolist(), Y_edges.T.tolist(), color=cmap[i])
 
     if output_dir:
-        export_svg(p, filename=os.path.join(output_dir, 'true_graph.svg'))
+        output_file(os.path.join(output_dir, 'true_graph.html'))
+        save(p)
+        try:
+            export_svg(p, filename=os.path.join(output_dir, 'true_graph.svg'))
+        except:
+            print("Error exporting SVG")
     else:
         show(p)
 
@@ -236,8 +252,13 @@ def plot_predicted_graph(model, output_dir=None):
         q.multi_line(X_edges.T.tolist(), Y_edges.T.tolist(), color=cmap[i])
 
     if output_dir:
-        export_svg(p, filename=os.path.join(output_dir, 'true_graph.svg'))
-        export_svg(q, filename=os.path.join(output_dir, 'predicted_graph.svg'))
+        output_file(os.path.join(output_dir, 'predicted_graph.html'))
+        save(row([p, q]))
+        try:
+            export_svg(p, filename=os.path.join(output_dir, 'true_graph.svg'))
+            export_svg(q, filename=os.path.join(output_dir, 'predicted_graph.svg'))
+        except:
+            print("Error exporting SVGs")
     else:
         show(row([p, q]))
 
@@ -291,8 +312,13 @@ def plot_track_lengths(model, output_dir=None):
             source=ColumnDataSource(pred_histogram))
     
     if output_dir:
-        export_svg(p1, filename=os.path.join(output_dir, 'true_track_lengths.svg'))
-        export_svg(p2, filename=os.path.join(output_dir, 'predicted_track_lengths.svg'))
+        output_file(os.path.join(output_dir, 'track_lengths.html'))
+        save(row([p1, p2]))
+        try:
+            export_svg(p1, filename=os.path.join(output_dir, 'true_track_lengths.svg'))
+            export_svg(p2, filename=os.path.join(output_dir, 'predicted_track_lengths.svg'))
+        except:
+            print("Error exporting SVGs")
     else:
         show(row([p1, p2]))
 
@@ -314,7 +340,7 @@ def plot_graph_sizes(model, output_dir=None):
     plt.xlabel('Number of edges')
     
     if output_dir:
-        plt.savefig(os.path.join(output_dir, 'predicted_graph_sizes.svg'))
+        plt.savefig(os.path.join(output_dir, 'predicted_graph_sizes.png'))
 
 
 def plot_edge_performance(model, output_dir=None):
@@ -364,6 +390,11 @@ def plot_edge_performance(model, output_dir=None):
         figures[-1].add_layout(label)
 
     if output_dir:
-        export_svgs(figures, filename=os.path.join(output_dir, 'edge_performance.svg'))
+        output_file(os.path.join(output_dir, 'edge_performance.html'))
+        save(figures)
+        try:
+            export_svgs(figures, filename=os.path.join(output_dir, 'edge_performance.svg'))
+        except:
+            print("Error exporting SVGs")
     else:
         show(row(figures))

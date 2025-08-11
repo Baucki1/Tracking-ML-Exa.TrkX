@@ -144,7 +144,7 @@ def plot_observable_performance(particles: pd.DataFrame):
         reco_eta = eta[cuts & fiducial & trackable & matched]
         make_cmp_plot_fn([gen_eta, true_eta, reco_eta], configs=default_eta_configs, xlabel=r"$\eta$", ymin=0.6)
 
-def plot_pt_eff(particles):
+def plot_pt_eff(particles, output_dir=None):
 
     pt = particles.pt.values
 
@@ -155,6 +155,7 @@ def plot_pt_eff(particles):
     true_vals, true_bins = np.histogram(true_pt, bins=default_pt_bins)
     reco_vals, reco_bins = np.histogram(reco_pt, bins=default_pt_bins)
 
+
     # Plot the ratio of the histograms as an efficiency
     eff, err = get_ratio(reco_vals, true_vals)
 
@@ -163,6 +164,80 @@ def plot_pt_eff(particles):
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
-    # Add x and y labels
+    ax.hist(true_pt, bins=default_pt_bins, histtype='stepfilled', lw=2, label='True $p_T$ (normalized)', alpha=0.5, density=True, color='green')
+    ax.hist(reco_pt, bins=default_pt_bins, histtype='step', lw=2, label='Reconstructed $p_T$', alpha=0.5, density=True, color='green')    
+    
+    ax.legend(loc='best')
+    
     ax.set_xlabel('$p_T [GeV]$', fontsize=16)
     ax.set_ylabel('Efficiency', fontsize=16)
+    
+    if output_dir is not None:
+        fig.savefig(os.path.join(output_dir, "pt_efficiency.png"))
+        
+def plot_eta_eff(particles, output_dir=None):
+    print(particles.columns)
+
+
+    eta = particles.eta.values
+
+    true_eta = eta[particles["is_reconstructable"]]
+    reco_eta = eta[particles["is_reconstructable"] & particles["is_reconstructed"]]
+
+    # Get histogram values of true_eta and reco_eta
+    true_vals, true_bins = np.histogram(true_eta, bins=default_eta_bins)
+    reco_vals, reco_bins = np.histogram(reco_eta, bins=default_eta_bins)
+
+    # Plot the ratio of the histograms as an efficiency
+    eff, err = get_ratio(reco_vals, true_vals)
+
+    xvals = (true_bins[1:] + true_bins[:-1]) / 2
+    xerrs = (true_bins[1:] - true_bins[:-1]) / 2
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.errorbar(xvals, eff, xerr=xerrs, yerr=err, fmt='o', color='black', label='Efficiency')
+    ax.hist(true_eta, bins=default_eta_bins, histtype='stepfilled', lw=2, label='True $\eta$ (normalized)', alpha=0.5, density=True, color='green')
+    ax.hist(reco_eta, bins=default_eta_bins, histtype='step', lw=2, label='Reconstructed $\eta$', alpha=0.5, density=True, color='green')
+    
+    ax.legend(loc='best')
+    
+    ax.set_xlabel(r'$\eta$', fontsize=16)
+    ax.set_ylabel('Efficiency', fontsize=16)
+    
+    if output_dir is not None:
+        fig.savefig(os.path.join(output_dir, "eta_efficiency.png"))
+        
+def plot_tracks_per_event(tracks, matched_tracks, output_dir=None):
+    """
+    Plot the number of tracks per event.
+    """
+    n_tracks = tracks.groupby('event_id').size().values
+    n_matched_tracks = matched_tracks.groupby('event_id').size().values
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    bins = np.arange(min(n_tracks.min(), n_matched_tracks.min()) - 1.5, max(n_tracks.max(), n_matched_tracks.max()) + 1.5)
+    ax.hist(n_tracks, bins=np.arange(n_tracks.min()-1.5, n_tracks.max()+1.5, 1), histtype='step', lw=2, label='Total Tracks')
+    ax.hist(n_matched_tracks, bins=np.arange(n_matched_tracks.min()-1.5, n_matched_tracks.max()+1.5, 1), histtype='step', lw=2, label='Matched Tracks')
+    
+    ax.legend(loc='best')
+    
+    ax.set_xlabel('Number of tracks', fontsize=16)
+    ax.set_ylabel('Events', fontsize=16)
+    
+    if output_dir is not None:
+        fig.savefig(os.path.join(output_dir, "tracks_per_event.png"))
+        
+def plot_matched_hits_per_event(particles, output_dir=None):
+    """
+    Plot the number of matched hits per event.
+    """
+    n_matched_hits = particles.groupby('event_id')['is_reconstructed'].sum().values
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.hist(n_matched_hits, bins=np.arange(0.5, n_matched_hits.max() + 1.5), histtype='step', lw=2)
+    
+    ax.set_xlabel('Number of matched hits per event', fontsize=16)
+    ax.set_ylabel('Number of events', fontsize=16)
+    
+    if output_dir is not None:
+        fig.savefig(os.path.join(output_dir, "matched_hits_per_event.png"))

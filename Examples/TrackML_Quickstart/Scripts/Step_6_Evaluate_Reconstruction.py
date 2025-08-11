@@ -17,7 +17,7 @@ from tqdm.contrib.concurrent import process_map
 from tqdm import tqdm
 from functools import partial
 from utils.convenience_utils import headline
-from utils.plotting_utils import plot_pt_eff
+from utils.plotting_utils import plot_pt_eff, plot_eta_eff, plot_tracks_per_event, plot_matched_hits_per_event
 
 def parse_args():
     """Parse command line arguments."""
@@ -35,9 +35,15 @@ def load_reconstruction_df(file):
 def load_particles_df(file):
     """Load the particles from a file."""
     graph = torch.load(file, map_location="cpu", weights_only=False)
+    
+    # calculate psudorapidity
+    x = graph.x.detach().numpy()
+    r, z = x[:, 0], x[:, 2]
+    theta = np.arctan2(r, z)  # theta = arctan(r/z)
+    eta = -np.log(np.tan(0.5 * theta))  # eta = -ln(tan(theta/2))
 
     # Get the particle dataframe
-    particles_df = pd.DataFrame({"particle_id": graph.pid, "pt": graph.pt})
+    particles_df = pd.DataFrame({"particle_id": graph.pid, "pt": graph.pt, "eta": eta})
 
     # Reduce to only unique particle_ids
     particles_df = particles_df.drop_duplicates(subset=['particle_id'])
@@ -176,13 +182,25 @@ def evaluate(config_file="pipeline_config.yaml"):
     logging.info(headline("c) Plotting results"))
 
     # First get the list of particles without duplicates
-    grouped_reco_particles = particles.groupby('particle_id')["is_reconstructed"].any()
-    particles["is_reconstructed"] = particles["particle_id"].isin(grouped_reco_particles[grouped_reco_particles].index.values)
-    particles = particles.drop_duplicates(subset=['particle_id'])
+    #grouped_reco_particles = particles.groupby('particle_id')["is_reconstructed"].any()
+    #particles["is_reconstructed"] = particles["particle_id"].isin(grouped_reco_particles[grouped_reco_particles].index.values)
+    #particles = particles.drop_duplicates(subset=['particle_id', 'event_id'])
+    
+    # combine is_reconstructed and is_matchable into is_reconstructed
+    particles["is_reconstructed"] = particles["is_reconstructed"] & particles["is_matchable"]
+    particles["is_reconstructed"] = particles.groupby(['particle_id', 'event_id'])["is_reconstructed"].transform('any')
+    particles = particles.drop_duplicates(subset=['particle_id', 'event_id'])
+    
+    
 
     # Plot the results across pT and eta
-    plot_pt_eff(particles)
-
+    plot_pt_eff(particles, output_dir=os.path.join(common_configs["plot_output_directory"], common_configs["experiment_name"]) if "plot_output_directory" in common_configs else None)
+    plot_eta_eff(particles, output_dir=os.path.join(common_configs["plot_output_directory"], common_configs["experiment_name"]) if "plot_output_directory" in common_configs else None)
+    plot_tracks_per_event(tracks, matched_tracks, output_dir=os.path.join(common_configs["plot_output_directory"], common_configs["experiment_name"]) if "plot_output_directory" in common_configs else None)
+    # TODO:
+    plot_matched_hits_per_event(matched_tracks, output_dir=os.path.join(common_configs["plot_output_directory"], common_configs["experiment_name"]) if "plot_output_directory" in common_configs else None)
+    
+    
     # TODO: Plot the results
     return evaluated_events, reconstructed_particles, particles, matched_tracks, tracks
     
